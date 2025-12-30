@@ -254,7 +254,6 @@ class SubmissionConfig:
     readme: str
     acknowledged: bool
     enable_slack_submission: bool
-    additional_files: list[str]
     safe_flag: bool
 
 
