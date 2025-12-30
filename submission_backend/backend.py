@@ -300,17 +300,19 @@ def create_submission_zip(config: SubmissionConfig):
         return
 
     if not save_top_wandb_runs(
-        api_key=config.wandb_api_key,
-        username_or_team=config.wandb_username_or_teamname,
-        project=config.wandb_project,
+        config.wandb_api_key,
+        config.wandb_username_or_teamname,
+        config.wandb_project,
+        config.acknowledged,
     ):
         print("ERROR: Failed to save W&B run information.")
         return
 
     if not save_kaggle_json(
-        username=config.kaggle_username,
-        api_key=config.kaggle_api_key,
-        enable_slack_submission=config.enable_slack_submission,
+        config.kaggle_username,
+        config.kaggle_api_key,
+        config.acknowledged,
+        config.enable_slack_submission,
     ):
         print(
             f"ERROR: Failed to save Kaggle credentials for user "
