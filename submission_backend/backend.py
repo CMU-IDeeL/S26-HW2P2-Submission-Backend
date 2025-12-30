@@ -141,10 +141,12 @@ def save_top_wandb_runs(wandb_api_key, wandb_username_or_teamname, wandb_project
             "config": run.config,
             "summary": dict(run.summary),
         }
+        '''
         try:
             run_data["history"] = run.history(samples=1000, pandas=True).to_dict(orient="records")
         except Exception as e:
             run_data["history"] = f"Failed to fetch history: {str(e)}"
+        '''
         all_data.append(run_data)
     with open(WANDB_OUTPUT_PKL, "wb") as f:
         pickle.dump(all_data, f)
