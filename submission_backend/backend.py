@@ -113,6 +113,21 @@ def save_readme(readme):
 # Saves wandb logs
 import wandb, json, pickle
 
+def make_pickle_safe(obj):
+    if isinstance(obj, dict):
+        return {k: make_pickle_safe(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [make_pickle_safe(v) for v in obj]
+    elif isinstance(obj, tuple):
+        return tuple(make_pickle_safe(v) for v in obj)
+    elif hasattr(obj, "item"):  # numpy scalars
+        return obj.item()
+    elif isinstance(obj, (str, int, float, bool)) or obj is None:
+        return obj
+    else:
+        return str(obj)  # LAST RESORT
+
+
 def save_top_wandb_runs(wandb_api_key, wandb_username_or_teamname, wandb_project, acknowledged):
     wandb.login(key=wandb_api_key)
     if not acknowledged:
@@ -126,35 +141,33 @@ def save_top_wandb_runs(wandb_api_key, wandb_username_or_teamname, wandb_project
     )
     selected_runs = runs[:min(WANDB_TOP_N, len(runs))]
 
-    if not selected_runs:
-        print(f"ERROR: No runs found for {wandb_username_or_teamname}/{wandb_project}. Please check that your wandb credentials (Wandb Username/Team Name, API Key, and Project Name) are correct.")
-        return False
-
     all_data = []
+
     for run in selected_runs:
-        run_data = {
+        raw = {
             "id": run.id,
             "name": run.name,
-            "tags": run.tags,
+            "tags": list(run.tags),
             "state": run.state,
             "created_at": str(run.created_at),
-            "config": run.config,
+            "config": dict(run.config),
             "summary": dict(run.summary),
         }
-        '''
+
         try:
-            run_data["history"] = run.history(samples=1000, pandas=True).to_dict(orient="records")
+            hist_df = run.history(samples=500)
+            raw["history"] = hist_df.to_dict(orient="records")
         except Exception as e:
-            run_data["history"] = f"Failed to fetch history: {str(e)}"
-        '''
-        all_data.append(run_data)
-    print(run_data)
+            raw["history"] = {"error": str(e)}
+
+        all_data.append(make_pickle_safe(raw))
+
     with open(WANDB_OUTPUT_PKL, "wb") as f:
         pickle.dump(all_data, f)
 
     print(f"OK: Exported {len(all_data)} WandB runs to {WANDB_OUTPUT_PKL}")
-
     return True
+
 # Saves kaggle information
 
 # Install dependencies silently (only if running on Colab)
