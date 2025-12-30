@@ -160,10 +160,8 @@ import sys
 from datetime import datetime
 import os, json, requests
 def kaggle_login(username, key):
-    os.makedirs(os.path.expanduser("~/.kaggle"), exist_ok=True)
-    with open(os.path.expanduser("~/.kaggle/kaggle.json"), "w") as f:
-        json.dump({"username": username, "key": key}, f)
-    os.chmod(os.path.expanduser("~/.kaggle/kaggle.json"), 0o600)
+    os.environ['KAGGLE_username'] = username # TODO: Verify in Settings
+    os.environ['KAGGLE_API_TOKEN'] = key # TODO: Add Access Token
 
 
 def get_active_submission_config(enable_slack_submission: bool):
