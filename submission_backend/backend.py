@@ -1,4 +1,5 @@
 from datetime import datetime
+from dataclasses import dataclass
 
 ###############################################################################
 #                          Assignment Configuration
@@ -87,8 +88,8 @@ Setting the ACNKOWLEDGED flag to True indicates full understanding and acceptanc
 7. Failure to comply with the prior rules will be considered an Academic Integrity Violation (AIV).
 8. Late submissions MUST be submitted through the Slack Kaggle (see writeup for details). Any submissions made to the regular Kaggle after the original deadline will NOT be considered, no matter how many slack days remain for the student.
 """
-def save_acknowledgment_file():
-    if ACKNOWLEDGED:
+def save_acknowledgment_file(acknowledged: bool):
+    if acknowledged:
         with open("acknowledgement.txt", "w") as f:
             f.write(ACKNOWLEDGEMENT_MESSAGE.strip())
         print("Saved acknowledgement.txt")
@@ -112,21 +113,21 @@ def save_readme(readme):
 # Saves wandb logs
 import wandb, json, pickle
 
-def save_top_wandb_runs():
-    wandb.login(key=WANDB_API_KEY)
-    if not ACKNOWLEDGED:
+def save_top_wandb_runs(wandb_api_key, wandb_username_or_teamname, wandb_project, acknowledged):
+    wandb.login(key=wandb_api_key)
+    if not acknowledged:
         print("ERROR: Must set ACKNOWLEDGED = True.")
         return False
 
     api = wandb.Api()
     runs = api.runs(
-        f"{WANDB_USERNAME_OR_TEAMNAME}/{WANDB_PROJECT}",
+        f"{wandb_username_or_teamname}/{wandb_project}",
         order=f"{'-' if WANDB_DIRECTION == 'descending' else ''}summary_metrics.{WANDB_METRIC}"
     )
     selected_runs = runs[:min(WANDB_TOP_N, len(runs))]
 
     if not selected_runs:
-        print(f"ERROR: No runs found for {WANDB_USERNAME_OR_TEAMNAME}/{WANDB_PROJECT}. Please check that your wandb credentials (Wandb Username/Team Name, API Key, and Project Name) are correct.")
+        print(f"ERROR: No runs found for {wandb_username_or_teamname}/{wandb_project}. Please check that your wandb credentials (Wandb Username/Team Name, API Key, and Project Name) are correct.")
         return False
 
     all_data = []
@@ -165,14 +166,14 @@ def kaggle_login(username, key):
     os.chmod(os.path.expanduser("~/.kaggle/kaggle.json"), 0o600)
 
 
-def get_active_submission_config():
-    if ENABLE_SLACK_SUBMISSION:
+def get_active_submission_config(enable_slack_submission: bool):
+    if enable_slack_submission:
         return SLACK_COMPETITION_NAME, SLACK_DEADLINE_UTC
     return COMPETITION_NAME, FINAL_DEADLINE_UTC
 
-def kaggle_user_exists(usernagbme):
+def kaggle_user_exists(username):
     try:
-        return requests.get(f"https://www.kaggle.com/{KAGGLE_USERNAME}").status_code == 200
+        return requests.get(f"https://www.kaggle.com/{username}").status_code == 200
     except Exception as e:
         print(f"ERROR: Error occured while checking Kaggle user: {e}")
         return False
@@ -192,37 +193,36 @@ def get_best_kaggle_score(subs):
     score_type = "private" if best.private_score not in [None, ""] else "public"
     return extract_score(best), score_type
 
-def save_kaggle_json(kaggle_username, kaggle_key):
+def save_kaggle_json(kaggle_username, kaggle_key, acknowledged, enable_slack_submission):
 
     kaggle_login(kaggle_username, kaggle_key)
 
     from kaggle.api.kaggle_api_extended import KaggleApi
 
-    if not ACKNOWLEDGED:
+    if not acknowledged:
         print("ERROR: Must set ACKNOWLEDGED = True.")
         return False
 
-    if not kaggle_user_exists(KAGGLE_USERNAME):
-        print(f"ERROR: User '{KAGGLE_USERNAME}' not found.")
+    if not kaggle_user_exists(kaggle_username):
+        print(f"ERROR: User '{kaggle_username}' not found.")
         return False
 
-    comp_name, deadline = get_active_submission_config()
-
+    comp_name, deadline = get_active_submission_config(enable_slack_submission)
     api = KaggleApi()
     api.authenticate()
 
     # Get competition submissions
-    submissions = [s for s in api.competition_submissions(comp_name) if getattr(s, "_submitted_by", None) == KAGGLE_USERNAME]
+    submissions = [s for s in api.competition_submissions(comp_name) if getattr(s, "_submitted_by", None) == kaggle_username]
     if not submissions:
-        print(f"ERROR: No valid submissions found for user [{KAGGLE_USERNAME}] for this competition [{comp_name}]. Slack flag set to [{ENABLE_SLACK_SUBMISSION}]")
+        print(f"ERROR: No valid submissions found for user [{kaggle_username}] for this competition [{comp_name}]. Slack flag set to [{enable_slack_submission}]")
         print("Please double check your Kaggle username and ensure you've submitted at least once.")
         return False
 
     score, score_type = get_best_kaggle_score(submissions)
     result = {
-        "kaggle_username": KAGGLE_USERNAME,
-        "acknowledgement": ACKNOWLEDGED,
-        "submitted_slack": ENABLE_SLACK_SUBMISSION,
+        "kaggle_username": kaggle_username,
+        "acknowledgement": acknowledged,
+        "submitted_slack": enable_slack_submission,
         "competition_name": comp_name,
         "deadline": deadline.strftime("%Y-%m-%d %H:%M:%S"),
         "raw_score": score * 100.0,
@@ -241,9 +241,25 @@ import os
 import sys
 import zipfile
 
+@dataclass
+class SubmissionConfig:
+    kaggle_username: str
+    kaggle_api_key: str
+    wandb_api_key: str
+    wandb_username_or_teamname: str
+    wandb_project: str
+    notebook_path: str
+    model_metadata_json: str
+    additional_files: list[str]
+    readme: str
+    acknowledged: bool
+    enable_slack_submission: bool
+    additional_files: list[str]
+    safe_flag: bool
 
-def create_submission_zip(additional_files, safe_flag):
-    if not "ACKNOWLEDGED" in globals() or not ACKNOWLEDGED:
+
+def create_submission_zip(config: SubmissionConfig):
+    if not "ACKNOWLEDGED" in globals() or not config.acknowledged:
         print("ERROR: Make sure to RUN the Acknowledgement cell (at the top of the notebook). Also, must set ACKNOWLEDGED = True.")
         return
 
@@ -252,27 +268,27 @@ def create_submission_zip(additional_files, safe_flag):
         return
 
 
-    if not "ENABLE_SLACK_SUBMISSION" in globals() or ENABLE_SLACK_SUBMISSION is None:
+    if not "ENABLE_SLACK_SUBMISSION" in globals() or config.enable_slack_submission is None:
         print("ERROR: \"ENABLE_SLACK_SUBMISSION\" variable is not defined. \nTODO: Make sure to RUN the cell (A few cells up at the beginning of the submission section). \nMake sure to set the ENABLE_SLACK_SUBMISSION checkbox if you're on colab, or set the parameter correctly set on other platforms \n(if you are submitting through the SLACK submission).")
         return
 
-    if not "README" in globals() or not README:
+    if not "README" in globals() or not config.readme:
         print("ERROR: Make sure to RUN the README cell(above your credentials cell).")
         return
 
-    if (not save_readme(README)):
+    if (not save_readme(config.readme)):
         print("ERROR: Error while saving the README file. Make sure to complete and RUN the README cell(above your credentials cell).")
         return
 
     if (not save_top_wandb_runs()):
         return
 
-    if not "KAGGLE_USERNAME" in globals() or not "KAGGLE_API_KEY" in globals() or not KAGGLE_USERNAME or not KAGGLE_API_KEY:
+    if not "KAGGLE_USERNAME" in globals() or not "KAGGLE_API_KEY" in globals() or not config.kaggle_username or not config.kaggle_api_key:
         print("ERROR: Make sure to set KAGGLE_USERNAME and KAGGLE_API_KEY for this code submission.")
         return
 
-    if (not save_kaggle_json(KAGGLE_USERNAME, KAGGLE_API_KEY)):
-        print(f"ERROR: An error occured while retrieve kaggle information from username [{KAGGLE_USERNAME}] from competition [{get_active_submission_config()[0]}] with slack flag set to [{ENABLE_SLACK_SUBMISSION}]. Please check your kaggle username, key, and submission.")
+    if (not save_kaggle_json(config.kaggle_username, config.kaggle_api_key)):
+        print(f"ERROR: An error occured while retrieve kaggle information from username [{config.kaggle_username}] from competition [{get_active_submission_config()[0]}] with slack flag set to [{config.enable_slack_submission}]. Please check your kaggle username, key, and submission.")
         return
 
     files_to_zip = [
@@ -280,9 +296,9 @@ def create_submission_zip(additional_files, safe_flag):
         "README.txt",
         KAGGLE_OUTPUT_JSON,
         WANDB_OUTPUT_PKL,
-        MODEL_METADATA_JSON,
-        NOTEBOOK_PATH,
-    ] + additional_files
+        config.model_metadata_json,
+        config.notebook_path,
+    ] + config.additional_files
 
     missing_files = False
 
@@ -297,7 +313,7 @@ def create_submission_zip(additional_files, safe_flag):
                 print(f"ERROR: Missing file: {file_path}")
 
     if missing_files:
-        if safe_flag:
+        if config.safe_flag:
             raise "ERROR: Missing files with safety flag set to True. Please upload any necessary files, ensure you have the correct paths and rerun all cells."
         else:
             print("WARNING: Missing files with safety flag set to False. Submission may be incomplete.")
