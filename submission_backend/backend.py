@@ -262,7 +262,7 @@ def create_submission_zip(config: SubmissionConfig):
         print("ERROR: Make sure to RUN the Acknowledgement cell (at the top of the notebook). Also, must set ACKNOWLEDGED = True.")
         return
 
-    if (not save_acknowledgment_file()):
+    if (not save_acknowledgment_file(config.acknowledged)):
         print("ERROR: Make sure to RUN the Acknowledgement cell (at the top of the notebook). Also, must set ACKNOWLEDGED = True.")
         return
 
@@ -279,14 +279,14 @@ def create_submission_zip(config: SubmissionConfig):
         print("ERROR: Error while saving the README file. Make sure to complete and RUN the README cell(above your credentials cell).")
         return
 
-    if (not save_top_wandb_runs()):
+    if (not save_top_wandb_runs(config.wandb_api_key, config.wandb_username_or_teamname, config.wandb_project, config.acknowledged)):
         return
 
     if not config.kaggle_username or not config.kaggle_api_key:
         print("ERROR: Make sure to set KAGGLE_USERNAME and KAGGLE_API_KEY for this code submission.")
         return
 
-    if (not save_kaggle_json(config.kaggle_username, config.kaggle_api_key)):
+    if (not save_kaggle_json(config.kaggle_username, config.kaggle_api_key, config.acknowledged, config.enable_slack_submission)):
         print(f"ERROR: An error occured while retrieve kaggle information from username [{config.kaggle_username}] from competition [{get_active_submission_config()[0]}] with slack flag set to [{config.enable_slack_submission}]. Please check your kaggle username, key, and submission.")
         return
 
@@ -313,7 +313,7 @@ def create_submission_zip(config: SubmissionConfig):
 
     if missing_files:
         if config.safe_flag:
-            raise "ERROR: Missing files with safety flag set to True. Please upload any necessary files, ensure you have the correct paths and rerun all cells."
+            raise Exception("ERROR: Missing files with safety flag set to True. Please upload any necessary files, ensure you have the correct paths and rerun all cells.")
         else:
             print("WARNING: Missing files with safety flag set to False. Submission may be incomplete.")
 
