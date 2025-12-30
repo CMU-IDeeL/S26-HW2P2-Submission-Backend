@@ -258,38 +258,69 @@ class SubmissionConfig:
 
 
 def create_submission_zip(config: SubmissionConfig):
+    """
+    Create the final submission ZIP using a fully config-driven workflow.
+    No globals are read inside this function.
+    """
+
+    # ------------------------------------------------------------------
+    # 1. Validate required config
+    # ------------------------------------------------------------------
     if not config.acknowledged:
-        print("ERROR: Make sure to RUN the Acknowledgement cell (at the top of the notebook). Also, must set ACKNOWLEDGED = True.")
+        print(
+            "ERROR: Submission acknowledgement not accepted.\n"
+            "Please set ACKNOWLEDGED = True and re-run the acknowledgement cell."
+        )
         return
 
-    if (not save_acknowledgment_file(config.acknowledged)):
-        print("ERROR: Make sure to RUN the Acknowledgement cell (at the top of the notebook). Also, must set ACKNOWLEDGED = True.")
-        return
-
-
-    if not config.enable_slack_submission:
-        print("ERROR: \"ENABLE_SLACK_SUBMISSION\" variable is not defined. \nTODO: Make sure to RUN the cell (A few cells up at the beginning of the submission section). \nMake sure to set the ENABLE_SLACK_SUBMISSION checkbox if you're on colab, or set the parameter correctly set on other platforms \n(if you are submitting through the SLACK submission).")
+    if config.enable_slack_submission is None:
+        print(
+            "ERROR: ENABLE_SLACK_SUBMISSION is not set.\n"
+            "Please run the submission setup cell and explicitly set it to True or False."
+        )
         return
 
     if not config.readme:
-        print("ERROR: Make sure to RUN the README cell(above your credentials cell).")
-        return
-
-    if (not save_readme(config.readme)):
-        print("ERROR: Error while saving the README file. Make sure to complete and RUN the README cell(above your credentials cell).")
-        return
-
-    if (not save_top_wandb_runs(config.wandb_api_key, config.wandb_username_or_teamname, config.wandb_project, config.acknowledged)):
+        print("ERROR: README content is missing. Please run the README cell.")
         return
 
     if not config.kaggle_username or not config.kaggle_api_key:
-        print("ERROR: Make sure to set KAGGLE_USERNAME and KAGGLE_API_KEY for this code submission.")
+        print("ERROR: KAGGLE_USERNAME and KAGGLE_API_KEY must be set.")
         return
 
-    if (not save_kaggle_json(config.kaggle_username, config.kaggle_api_key, config.acknowledged, config.enable_slack_submission)):
-        print(f"ERROR: An error occured while retrieve kaggle information from username [{config.kaggle_username}] from competition [{get_active_submission_config()[0]}] with slack flag set to [{config.enable_slack_submission}]. Please check your kaggle username, key, and submission.")
+    # ------------------------------------------------------------------
+    # 2. Generate required files
+    # ------------------------------------------------------------------
+    if not save_acknowledgment_file(config.acknowledged):
+        print("ERROR: Failed to save acknowledgement file.")
         return
 
+    if not save_readme(config.readme):
+        print("ERROR: Failed to save README file.")
+        return
+
+    if not save_top_wandb_runs(
+        api_key=config.wandb_api_key,
+        username_or_team=config.wandb_username_or_teamname,
+        project=config.wandb_project,
+    ):
+        print("ERROR: Failed to save W&B run information.")
+        return
+
+    if not save_kaggle_json(
+        username=config.kaggle_username,
+        api_key=config.kaggle_api_key,
+        enable_slack_submission=config.enable_slack_submission,
+    ):
+        print(
+            f"ERROR: Failed to save Kaggle credentials for user "
+            f"[{config.kaggle_username}]."
+        )
+        return
+
+    # ------------------------------------------------------------------
+    # 3. Package submission
+    # ------------------------------------------------------------------
     files_to_zip = [
         "acknowledgement.txt",
         "README.txt",
@@ -297,28 +328,38 @@ def create_submission_zip(config: SubmissionConfig):
         WANDB_OUTPUT_PKL,
         config.model_metadata_json,
         config.notebook_path,
-    ] + config.additional_files
+        *config.additional_files,
+    ]
 
-    missing_files = False
+    missing_files = []
 
     with zipfile.ZipFile(SUBMISSION_OUTPUT, "w") as zipf:
         for file_path in files_to_zip:
             if os.path.exists(file_path):
-                arcname = os.path.basename(file_path)  # flatten path
-                zipf.write(file_path, arcname=arcname)
-                print(f"OK: Added {arcname}")
+                zipf.write(file_path, arcname=os.path.basename(file_path))
+                print(f"OK: Added {os.path.basename(file_path)}")
             else:
-                missing_files = True
+                missing_files.append(file_path)
                 print(f"ERROR: Missing file: {file_path}")
 
     if missing_files:
         if config.safe_flag:
-            raise Exception("ERROR: Missing files with safety flag set to True. Please upload any necessary files, ensure you have the correct paths and rerun all cells.")
+            raise RuntimeError(
+                "ERROR: Missing required files with safe_flag=True:\n"
+                + "\n".join(missing_files)
+            )
         else:
-            print("WARNING: Missing files with safety flag set to False. Submission may be incomplete.")
+            print(
+                "WARNING: Missing files detected, but safe_flag=False.\n"
+                "Submission ZIP may be incomplete."
+            )
 
+    # ------------------------------------------------------------------
+    # 4. Deliver result
+    # ------------------------------------------------------------------
     if "google.colab" in sys.modules:
         from google.colab import files
         files.download(SUBMISSION_OUTPUT)
 
     print("Final submission saved as:", SUBMISSION_OUTPUT)
+    print("Please upload this ZIP to Autolab for grading.")
