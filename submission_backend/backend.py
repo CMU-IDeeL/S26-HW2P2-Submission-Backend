@@ -258,7 +258,7 @@ class SubmissionConfig:
 
 
 def create_submission_zip(config: SubmissionConfig):
-    if not "ACKNOWLEDGED" in globals() or not config.acknowledged:
+    if not config.acknowledged:
         print("ERROR: Make sure to RUN the Acknowledgement cell (at the top of the notebook). Also, must set ACKNOWLEDGED = True.")
         return
 
@@ -267,11 +267,11 @@ def create_submission_zip(config: SubmissionConfig):
         return
 
 
-    if not "ENABLE_SLACK_SUBMISSION" in globals() or config.enable_slack_submission is None:
+    if not config.enable_slack_submission:
         print("ERROR: \"ENABLE_SLACK_SUBMISSION\" variable is not defined. \nTODO: Make sure to RUN the cell (A few cells up at the beginning of the submission section). \nMake sure to set the ENABLE_SLACK_SUBMISSION checkbox if you're on colab, or set the parameter correctly set on other platforms \n(if you are submitting through the SLACK submission).")
         return
 
-    if not "README" in globals() or not config.readme:
+    if not config.readme:
         print("ERROR: Make sure to RUN the README cell(above your credentials cell).")
         return
 
@@ -282,7 +282,7 @@ def create_submission_zip(config: SubmissionConfig):
     if (not save_top_wandb_runs()):
         return
 
-    if not "KAGGLE_USERNAME" in globals() or not "KAGGLE_API_KEY" in globals() or not config.kaggle_username or not config.kaggle_api_key:
+    if not config.kaggle_username or not config.kaggle_api_key:
         print("ERROR: Make sure to set KAGGLE_USERNAME and KAGGLE_API_KEY for this code submission.")
         return
 
