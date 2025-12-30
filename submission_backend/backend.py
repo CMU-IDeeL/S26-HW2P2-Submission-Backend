@@ -142,7 +142,7 @@ def save_top_wandb_runs(wandb_api_key, wandb_username_or_teamname, wandb_project
             "summary": dict(run.summary),
         }
         try:
-            run_data["history"] = run.history(samples=1000)
+            run_data["history"] = run.history(samples=1000, pandas=True).to_dict(orient="records")
         except Exception as e:
             run_data["history"] = f"Failed to fetch history: {str(e)}"
         all_data.append(run_data)
