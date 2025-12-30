@@ -194,7 +194,7 @@ def get_best_kaggle_score(subs):
 def save_kaggle_json(kaggle_username, kaggle_key, acknowledged, enable_slack_submission):
 
     kaggle_login(kaggle_username, kaggle_key)
-
+    import kaggle
     from kaggle.api.kaggle_api_extended import KaggleApi
 
     if not acknowledged:
@@ -206,6 +206,8 @@ def save_kaggle_json(kaggle_username, kaggle_key, acknowledged, enable_slack_sub
         return False
 
     comp_name, deadline = get_active_submission_config(enable_slack_submission)
+    print(os.environ['KAGGLE_username'])
+    print(os.environ['KAGGLE_API_TOKEN'])
     api = KaggleApi()
     api.authenticate()
 
