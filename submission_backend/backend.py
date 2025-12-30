@@ -30,14 +30,14 @@ WANDB_OUTPUT_PKL = "wandb_top_runs.pkl"
 # ---------------------------------------------------------------------------
 # Kaggle competition name (found at:
 # https://www.kaggle.com/competitions/<competition_name>)
-COMPETITION_NAME = "hw-2-p-2-f-25-sandbox-testing-11785"
+COMPETITION_NAME = "s-26-hw-2-p-2-sandbox"
 
 # Slack-day Kaggle competition (used ONLY if ENABLE_SLACK_SUBMISSION = True)
-SLACK_COMPETITION_NAME = "hw-2-p-2-f-25-sandbox-testing-11785"
+SLACK_COMPETITION_NAME = "s-26-hw-2-p-2-sandbox"
 
 # Submission deadlines (Eastern Time)
-FINAL_SUBMISSION_DATETIME = "2025-08-31 23:59:59"
-SLACK_SUBMISSION_DATETIME = "2025-08-31 23:59:59"
+FINAL_SUBMISSION_DATETIME = "2026-01-11 23:59:59"
+SLACK_SUBMISSION_DATETIME = "2026-01-11 23:59:59"
 
 # Direction used for grading Kaggle scores
 #   "ascending"  -> higher is better
